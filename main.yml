@@ -1,0 +1,58 @@
+name: Base44 WhatsApp Bot Deployment
+
+on:
+  # 🕒 Restart the bot every 6 hours
+  schedule:
+    - cron: '0 */6 * * *'
+  
+  # 🚀 Allow manual start from the "Actions" tab
+  workflow_dispatch:
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      # 📦 Install Puppeteer dependencies for Linux
+      # These are required for whatsapp-web.js to run Chrome in headless mode
+      - name: Install System Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libnss3 libatk-bridge2.0-0 libxcomposite1 libxdamage1 libxrandr2 libgbm1 libasound2
+
+      - name: Install Project Dependencies
+        run: npm install
+
+      # 💾 Restore WhatsApp Session from GitHub Cache
+      - name: Restore Session Cache
+        uses: actions/cache@v4
+        with:
+          path: .wwebjs_auth
+          key: ${{ runner.os }}-whatsapp-session-${{ github.run_id }}
+          restore-keys: |
+            ${{ runner.os }}-whatsapp-session-
+
+      # 🚀 Run the Bot
+      # We pass secrets from GitHub Secrets as Environment Variables
+      - name: Start Bot
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          BASE44_API_KEY: ${{ secrets.BASE44_API_KEY }}
+        run: node index.js
+
+      # 💾 Save the updated session back to cache for the next run
+      - name: Save Session Cache
+        if: always()
+        uses: actions/cache@v4
+        with:
+          path: .wwebjs_auth
+          key: ${{ runner.os }}-whatsapp-session-${{ github.run_id }}
